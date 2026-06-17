@@ -1,10 +1,13 @@
-use std::{env, fs::File, io::Write};
+use std::{env, fs::File, io::Write, vec};
 
-use docx_rs::{DocumentChild, Paragraph, ParagraphChild, RunChild, read_docx};
+use docx_rs::{DocumentChild, ParagraphChild, RunChild, read_docx};
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
-    let input: String = env::args().collect();
-    let mut file = File::open(input)?;
+    let input: Vec<String> = env::args().collect();
+    //let mut counter: u32 = 0;
+    let mut file = File::open(&input[0])?;
+    let output_path = &input[1];
+    
     let mut buf = Vec::new();
     std::io::Read::read_to_end(&mut file, &mut buf)?;
     let docx = read_docx(&buf)?;
@@ -38,6 +41,8 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         }
     }
 
+    md_writer.finish(&output_path.to_string())?;
+
     Ok(())
 }
 
@@ -61,14 +66,64 @@ impl MarkdownWriter {
         }
     }
 
-    pub fn write_hr(&mut self) {
-        self.buffer.push_str(&format!("---\n\n"));
-    }
-
     pub fn finish(self, output_path: &str) -> std::io::Result<()> {
         let mut output = File::create(output_path)?;
         output.write_all(self.buffer.as_bytes())?;
         Ok(())
+    }
+}
+
+struct MdTable {
+    rows: Vec<Row>,
+}
+
+impl MdTable {
+    pub fn new() -> Self {
+        Self { rows: vec![Row::new()] }
+    }
+
+    pub fn write_row(&mut self, row: Row) {
+        self.rows.push(row);
+    }
+}
+
+struct Row {
+    cells: Vec<Cell>,
+}
+
+impl Row {
+    pub fn new() -> Self {
+        Self { cells: vec![Cell::new()] }
+    }
+
+    pub fn write_cell(&mut self, cell: Cell) {
+        self.cells.push(cell);
+    }
+}
+
+struct Cell {
+    text: String,
+    colspan: usize,
+    rowspan: usize,
+}
+
+impl Cell {
+    pub fn new() -> Self {
+        Self { text: String::new(), colspan: 0, rowspan: 0 }
+    }
+
+    pub fn write_text(&mut self, text: String) {
+        if !text.is_empty() {
+            self.text.push_str(&text);
+        }
+    }
+
+    pub fn merge_col(&mut self, power: usize) {
+        self.colspan = power;
+    }
+
+    pub fn merge_row(&mut self, power:usize) {
+        self.rowspan = power;
     }
 }
 
