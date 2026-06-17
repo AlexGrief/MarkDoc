@@ -1,10 +1,9 @@
 use std::{env, fs::File, io::Write, vec};
 
-use docx_rs::{DocumentChild, ParagraphChild, RunChild, read_docx};
+use docx_rs::{DocumentChild, Header, Paragraph, ParagraphChild, RunChild, Table, TableRow, read_docx};
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     let input: Vec<String> = env::args().collect();
-    //let mut counter: u32 = 0;
     let mut file = File::open(&input[0])?;
     let output_path = &input[1];
     
@@ -30,7 +29,30 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                     md_writer.write_paragraph(&text);
                 }
             }
-            DocumentChild::Table(table) => todo!(),
+            DocumentChild::Table(table) => {
+                let mut outtable = MdTable::new();
+
+                for table_child in &table.rows {
+                    match table_child {
+                        docx_rs::TableChild::TableRow(row) => {
+                            for cell in &row.cells {
+                                match cell {
+                                    docx_rs::TableRowChild::TableCell(table_cell) => {
+                                        for cell_children in &table_cell.children {
+                                            match cell_children {
+                                                docx_rs::TableCellContent::Paragraph(paragraph) => todo!(),
+                                                docx_rs::TableCellContent::Table(table) => todo!(),
+                                                docx_rs::TableCellContent::StructuredDataTag(structured_data_tag) => todo!(),
+                                                docx_rs::TableCellContent::TableOfContents(table_of_contents) => todo!(),
+                                            }
+                                        }
+                                    },
+                                }
+                            }
+                        },
+                    }
+                }
+            },
             DocumentChild::BookmarkStart(bookmark_start) => todo!(),
             DocumentChild::BookmarkEnd(bookmark_end) => todo!(),
             DocumentChild::CommentStart(comment_range_start) => todo!(),
@@ -81,10 +103,6 @@ impl MdTable {
     pub fn new() -> Self {
         Self { rows: vec![Row::new()] }
     }
-
-    pub fn write_row(&mut self, row: Row) {
-        self.rows.push(row);
-    }
 }
 
 struct Row {
@@ -95,36 +113,22 @@ impl Row {
     pub fn new() -> Self {
         Self { cells: vec![Cell::new()] }
     }
-
-    pub fn write_cell(&mut self, cell: Cell) {
-        self.cells.push(cell);
-    }
 }
 
 struct Cell {
-    text: String,
-    colspan: usize,
-    rowspan: usize,
+    children: Vec<Node>,
 }
 
 impl Cell {
     pub fn new() -> Self {
-        Self { text: String::new(), colspan: 0, rowspan: 0 }
+        todo!()
     }
+}
 
-    pub fn write_text(&mut self, text: String) {
-        if !text.is_empty() {
-            self.text.push_str(&text);
-        }
-    }
-
-    pub fn merge_col(&mut self, power: usize) {
-        self.colspan = power;
-    }
-
-    pub fn merge_row(&mut self, power:usize) {
-        self.rowspan = power;
-    }
+enum Node {
+    Paragraph(Paragraph),
+    Header(Header),
+    Table(Table),
 }
 
 fn extract_paragraph_text(paragraph: &docx_rs::Paragraph) -> String {
