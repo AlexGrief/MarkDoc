@@ -1,6 +1,8 @@
-use std::{env, fs::File, io::Write, vec};
+use std::{any::Any, env, fs::File, io::Write, vec};
 
 use docx_rs::{DocumentChild, Header, Paragraph, ParagraphChild, RunChild, Table, TableRow, read_docx};
+
+//use crate::Node::Paragraph;
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     let input: Vec<String> = env::args().collect();
@@ -12,6 +14,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let docx = read_docx(&buf)?;
 
     let mut md_writer = MarkdownWriter::new();
+    let mut otf_doc = MdTable::new();
 
     for child in &docx.document.children {
         match child {
@@ -28,6 +31,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                 } else {
                     md_writer.write_paragraph(&text);
                 }
+                
             }
             DocumentChild::Table(table) => {
                 let mut outtable = MdTable::new();
@@ -103,6 +107,26 @@ impl MdTable {
     pub fn new() -> Self {
         Self { rows: vec![Row::new()] }
     }
+
+    pub fn write_smth(&mut self, types: DocumentChild, content: Node) {
+        for rows in &self.rows {
+            for cells in &rows.cells {
+                for node in &cells.children {
+                    match types {
+                        DocumentChild::Paragraph(paragraph) => todo!(),
+                        DocumentChild::Table(table) => todo!(),
+                        DocumentChild::BookmarkStart(bookmark_start) => todo!(),
+                        DocumentChild::BookmarkEnd(bookmark_end) => todo!(),
+                        DocumentChild::CommentStart(comment_range_start) => todo!(),
+                        DocumentChild::CommentEnd(comment_range_end) => todo!(),
+                        DocumentChild::StructuredDataTag(structured_data_tag) => todo!(),
+                        DocumentChild::TableOfContents(table_of_contents) => todo!(),
+                        DocumentChild::Section(section) => todo!(),
+                    }
+                }
+            }
+        }
+    }
 }
 
 struct Row {
@@ -121,14 +145,34 @@ struct Cell {
 
 impl Cell {
     pub fn new() -> Self {
-        todo!()
+        Self { children: Vec::new() }
     }
 }
 
 enum Node {
     Paragraph(Paragraph),
-    Header(Header),
-    Table(Table),
+    Header(Option<Header>),
+    Table(Option<Table>)
+}
+
+impl Node {
+    pub fn new() -> Self {
+        Self::Paragraph((Paragraph::new()));
+        Self::Header((None));
+        Self::Table((None))
+    }
+
+    pub fn write_table(&mut self, table_for_write: Table) {
+        Self::Table((Some(table_for_write)));
+    }
+
+    pub fn write_header(&mut self, header_for_write: Header) {
+        Self::Header((Some(header_for_write)));
+    }
+
+    pub fn write_paragraph(&mut self, paragraph_for_write: Paragraph) {
+        Self::Paragraph((paragraph_for_write));
+    }
 }
 
 fn extract_paragraph_text(paragraph: &docx_rs::Paragraph) -> String {
