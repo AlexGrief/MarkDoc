@@ -1,6 +1,6 @@
 use std::{any::Any, env, fs::File, io::Write, vec};
 
-use docx_rs::{DocumentChild, Header, Paragraph, ParagraphChild, RunChild, Table, TableRow, read_docx};
+use docx_rs::{DocumentChild, Header, Paragraph, ParagraphChild, Run, RunChild, Table, TableRow, read_docx};
 
 //use crate::Node::Paragraph;
 
@@ -31,7 +31,6 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                 } else {
                     md_writer.write_paragraph(&text);
                 }
-                
             }
             DocumentChild::Table(table) => {
                 let mut outtable = MdTable::new();
@@ -44,7 +43,34 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                                     docx_rs::TableRowChild::TableCell(table_cell) => {
                                         for cell_children in &table_cell.children {
                                             match cell_children {
-                                                docx_rs::TableCellContent::Paragraph(paragraph) => todo!(),
+                                                docx_rs::TableCellContent::Paragraph(paragraph) => {
+                                                    let text = extract_paragraph_text(paragraph);
+                                                    let r = Run::new();
+                                                    r.clone().add_text(&text);
+                                                    let ru = &r.to_owned();
+
+                                                    let par = Paragraph::new();
+                                                    par.clone().add_run(ru.clone());
+                                                    
+
+                                                    let header = Header::new();
+
+                                                    let paru = par.to_owned();
+                                                    header.clone().add_paragraph(paru);
+
+                                                    let headers = Some(header);
+
+                                                    if let Some(style) = &paragraph.property.style {
+                                                        match style.val.as_str() {
+                                                            "Heading1" => outtable.write_header(1, headers.as_ref()),
+                                                            "Heading2" => outtable.write_header(2, headers.as_ref()),
+                                                            "Heading3" => outtable.write_header(3, headers.as_ref()),
+                                                            _ => outtable.write_paragraph(&par.clone()), // Пишем все что не попало в фильтр как обычный текст
+                                                        }
+                                                    } else {
+                                                        md_writer.write_paragraph(&text);
+                                                    }
+                                                },
                                                 docx_rs::TableCellContent::Table(table) => todo!(),
                                                 docx_rs::TableCellContent::StructuredDataTag(structured_data_tag) => todo!(),
                                                 docx_rs::TableCellContent::TableOfContents(table_of_contents) => todo!(),
@@ -108,20 +134,48 @@ impl MdTable {
         Self { rows: vec![Row::new()] }
     }
 
-    pub fn write_smth(&mut self, types: DocumentChild, content: Node) {
+    pub fn write_paragraph(&mut self, paragraphd: &Paragraph) {
         for rows in &self.rows {
-            for cells in &rows.cells {
-                for node in &cells.children {
-                    match types {
-                        DocumentChild::Paragraph(paragraph) => todo!(),
-                        DocumentChild::Table(table) => todo!(),
-                        DocumentChild::BookmarkStart(bookmark_start) => todo!(),
-                        DocumentChild::BookmarkEnd(bookmark_end) => todo!(),
-                        DocumentChild::CommentStart(comment_range_start) => todo!(),
-                        DocumentChild::CommentEnd(comment_range_end) => todo!(),
-                        DocumentChild::StructuredDataTag(structured_data_tag) => todo!(),
-                        DocumentChild::TableOfContents(table_of_contents) => todo!(),
-                        DocumentChild::Section(section) => todo!(),
+            for cells in &rows.cells  {
+                for child in &cells.children {
+                    match child {
+                        Node::Paragraph(paragraph) => {
+                            Node::Paragraph((paragraphd.clone()));
+                        },
+                        Node::Header(header) => todo!(),
+                        Node::Table(table) => todo!(),
+                    }
+                }
+            }
+        }
+    }
+    
+    pub fn write_header(&mut self, hashes: usize, headerd: Option<&Header>) {
+        for rows in &self.rows {
+            for cells in &rows.cells  {
+                for child in &cells.children {
+                    match child {
+                        Node::Paragraph(paragraph) => todo!(),
+                        Node::Header(header) => {
+                            Node::Header(headerd.cloned());
+                        },
+                        Node::Table(table) => todo!(),
+                    }
+                }
+            }
+        }
+    }
+
+    pub fn write_table(&mut self, tabled: Option<&Table>) {
+        for rows in &self.rows {
+            for cells in &rows.cells  {
+                for child in &cells.children {
+                    match child {
+                        Node::Paragraph(paragraph) => todo!(),
+                        Node::Header(header) => todo!(),
+                        Node::Table(table) => {
+                            Node::Table(tabled.cloned());
+                        },
                     }
                 }
             }
@@ -149,6 +203,7 @@ impl Cell {
     }
 }
 
+#[derive(Clone)]
 enum Node {
     Paragraph(Paragraph),
     Header(Option<Header>),
@@ -162,16 +217,18 @@ impl Node {
         Self::Table((None))
     }
 
-    pub fn write_table(&mut self, table_for_write: Table) {
-        Self::Table((Some(table_for_write)));
-    }
-
-    pub fn write_header(&mut self, header_for_write: Header) {
-        Self::Header((Some(header_for_write)));
-    }
-
-    pub fn write_paragraph(&mut self, paragraph_for_write: Paragraph) {
-        Self::Paragraph((paragraph_for_write));
+    pub fn write_content(&mut self, content: Node) {
+        match content {
+            Node::Paragraph(paragraph) => {
+                Self::Paragraph(paragraph);
+            },
+            Node::Header(header) => {
+                Self::Header(header);
+            },
+            Node::Table(table) => {
+                Self::Table(table);
+            },
+        }
     }
 }
 
