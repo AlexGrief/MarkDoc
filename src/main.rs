@@ -1,20 +1,21 @@
-use std::{any::Any, env, fs::File, io::Write, vec};
+use std::{env, fs::File, io::Write, vec};
 
-use docx_rs::{DocumentChild, Header, Paragraph, ParagraphChild, Run, RunChild, Table, TableRow, read_docx};
+use docx_rs::{DocumentChild, Header, Paragraph, ParagraphChild, Run, RunChild, Table, read_docx};
 
 //use crate::Node::Paragraph;
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     let input: Vec<String> = env::args().collect();
-    let mut file = File::open(&input[0])?;
-    let output_path = &input[1];
+    let mut file = File::open(&input[1])?;
+    let output_path = &input[2];
     
     let mut buf = Vec::new();
     std::io::Read::read_to_end(&mut file, &mut buf)?;
     let docx = read_docx(&buf)?;
 
     let mut md_writer = MarkdownWriter::new();
-    let mut otf_doc = MdTable::new();
+    //let mut otf_doc = MdTable::new();
+    // Todo: remember why did i create this???
 
     for child in &docx.document.children {
         match child {
@@ -33,63 +34,17 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                 }
             }
             DocumentChild::Table(table) => {
-                let mut outtable = MdTable::new();
-
-                for table_child in &table.rows {
-                    match table_child {
-                        docx_rs::TableChild::TableRow(row) => {
-                            for cell in &row.cells {
-                                match cell {
-                                    docx_rs::TableRowChild::TableCell(table_cell) => {
-                                        for cell_children in &table_cell.children {
-                                            match cell_children {
-                                                docx_rs::TableCellContent::Paragraph(paragraph) => {
-                                                    let text = extract_paragraph_text(paragraph);
-                                                    let r = Run::new();
-                                                    r.clone().add_text(&text);
-                                                    let ru = &r.to_owned();
-
-                                                    let par = Paragraph::new();
-                                                    par.clone().add_run(ru.clone());
-                                                    
-
-                                                    let header = Header::new();
-
-                                                    let paru = par.to_owned();
-                                                    header.clone().add_paragraph(paru);
-
-                                                    let headers = Some(header);
-
-                                                    if let Some(style) = &paragraph.property.style {
-                                                        match style.val.as_str() {
-                                                            "Heading1" => outtable.write_header(1, headers.as_ref()),
-                                                            "Heading2" => outtable.write_header(2, headers.as_ref()),
-                                                            "Heading3" => outtable.write_header(3, headers.as_ref()),
-                                                            _ => outtable.write_paragraph(&par.clone()), // Пишем все что не попало в фильтр как обычный текст
-                                                        }
-                                                    } else {
-                                                        md_writer.write_paragraph(&text);
-                                                    }
-                                                },
-                                                docx_rs::TableCellContent::Table(table) => todo!(),
-                                                docx_rs::TableCellContent::StructuredDataTag(structured_data_tag) => todo!(),
-                                                docx_rs::TableCellContent::TableOfContents(table_of_contents) => todo!(),
-                                            }
-                                        }
-                                    },
-                                }
-                            }
-                        },
-                    }
-                }
+                let outtable = MdTable::new();
+                let tabled: Table = *table.clone();
+                make_table(tabled, outtable.clone());
             },
-            DocumentChild::BookmarkStart(bookmark_start) => todo!(),
-            DocumentChild::BookmarkEnd(bookmark_end) => todo!(),
-            DocumentChild::CommentStart(comment_range_start) => todo!(),
-            DocumentChild::CommentEnd(comment_range_end) => todo!(),
-            DocumentChild::StructuredDataTag(structured_data_tag) => todo!(),
-            DocumentChild::TableOfContents(table_of_contents) => todo!(),
-            DocumentChild::Section(section) => todo!(),
+            DocumentChild::BookmarkStart(_bookmark_start) => todo!(),
+            DocumentChild::BookmarkEnd(_bookmark_end) => todo!(),
+            DocumentChild::CommentStart(_comment_range_start) => todo!(),
+            DocumentChild::CommentEnd(_comment_range_end) => todo!(),
+            DocumentChild::StructuredDataTag(_structured_data_tag) => todo!(),
+            DocumentChild::TableOfContents(_table_of_contents) => todo!(),
+            DocumentChild::Section(_section) => todo!(),
         }
     }
 
@@ -125,6 +80,7 @@ impl MarkdownWriter {
     }
 }
 
+#[derive(Clone)]
 struct MdTable {
     rows: Vec<Row>,
 }
@@ -139,27 +95,28 @@ impl MdTable {
             for cells in &rows.cells  {
                 for child in &cells.children {
                     match child {
-                        Node::Paragraph(paragraph) => {
-                            Node::Paragraph((paragraphd.clone()));
+                        Node::Paragraph(_paragraph) => {
+                            Node::Paragraph(paragraphd.clone());
                         },
-                        Node::Header(header) => todo!(),
-                        Node::Table(table) => todo!(),
+                        Node::Header(_header) => todo!(),
+                        Node::Table(_table) => todo!(),
                     }
                 }
             }
         }
     }
     
-    pub fn write_header(&mut self, hashes: usize, headerd: Option<&Header>) {
+    pub fn write_header(&mut self, _hashes: usize, headerd: Option<&Header>) {
         for rows in &self.rows {
             for cells in &rows.cells  {
                 for child in &cells.children {
                     match child {
-                        Node::Paragraph(paragraph) => todo!(),
-                        Node::Header(header) => {
+                        Node::Paragraph(_paragraph) => todo!(),
+                        Node::Header(_header) => {
                             Node::Header(headerd.cloned());
+                            // TODO: Make header levels in this function.
                         },
-                        Node::Table(table) => todo!(),
+                        Node::Table(_table) => todo!(),
                     }
                 }
             }
@@ -171,9 +128,9 @@ impl MdTable {
             for cells in &rows.cells  {
                 for child in &cells.children {
                     match child {
-                        Node::Paragraph(paragraph) => todo!(),
-                        Node::Header(header) => todo!(),
-                        Node::Table(table) => {
+                        Node::Paragraph(_paragraph) => todo!(),
+                        Node::Header(_header) => todo!(),
+                        Node::Table(_table) => {
                             Node::Table(tabled.cloned());
                         },
                     }
@@ -183,6 +140,7 @@ impl MdTable {
     }
 }
 
+#[derive(Clone)]
 struct Row {
     cells: Vec<Cell>,
 }
@@ -193,6 +151,7 @@ impl Row {
     }
 }
 
+#[derive(Clone)]
 struct Cell {
     children: Vec<Node>,
 }
@@ -257,4 +216,54 @@ fn extract_paragraph_text(paragraph: &docx_rs::Paragraph) -> String {
         }
     }
     paragraph_text
+}
+
+fn make_table(table: Table, mut outtable: MdTable) {
+    for table_child in &table.rows {
+        match table_child {
+            docx_rs::TableChild::TableRow(row) => {
+                for cell in &row.cells {
+                    match cell {
+                        docx_rs::TableRowChild::TableCell(table_cell) => {
+                            for cell_children in &table_cell.children {
+                                match cell_children {
+                                    docx_rs::TableCellContent::Paragraph(paragraph) => {
+                                        let text = extract_paragraph_text(paragraph);
+                                        let r = Run::new();
+                                        r.clone().add_text(&text);
+                                        let ru = &r.to_owned();
+
+                                        let par = Paragraph::new();
+                                        par.clone().add_run(ru.clone());
+                                                    
+
+                                        let header = Header::new();
+
+                                        let paru = par.to_owned();
+                                        header.clone().add_paragraph(paru.clone());
+
+                                        let headers = Some(header);
+
+                                        if let Some(style) = &paragraph.property.style {
+                                            match style.val.as_str() {
+                                                "Heading1" => outtable.write_header(1, headers.as_ref()),
+                                                "Heading2" => outtable.write_header(2, headers.as_ref()),
+                                                "Heading3" => outtable.write_header(3, headers.as_ref()),
+                                                _ => outtable.write_paragraph(&par.clone()), // Пишем все что не попало в фильтр как обычный текст
+                                            }
+                                        } else {
+                                            outtable.write_paragraph(&paru);
+                                        }
+                                    }
+                                    docx_rs::TableCellContent::Table(tabler) => make_table(tabler.clone(), outtable.clone()),
+                                    docx_rs::TableCellContent::StructuredDataTag(_structured_data_tag) => todo!(),
+                                    docx_rs::TableCellContent::TableOfContents(_table_of_contents) => todo!(),
+                                }
+                            }
+                        },
+                    }
+                }
+            },
+        }
+    }
 }
